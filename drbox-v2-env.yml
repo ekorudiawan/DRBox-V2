@@ -1,0 +1,8 @@
+name: drbox-v2
+channels:
+  - anaconda
+  - conda-forge
+dependencies:
+  - python=3.7
+  - tensorflow-gpu==1.15
+  - imageio
