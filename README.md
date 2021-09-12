@@ -14,7 +14,13 @@ The DOI of this paper is 10.1109/TGRS.2019.2920534.
 
 Please cite this paper in your publications if it helps your research.
 
-
+Installation
+--
+First create new conda environment with this command then activate the environment
+```bash
+conda env create -f drbox-v2-env.yml
+conda activate drbox-v2
+```
 Data preparation
 --
 1 Data annotation
