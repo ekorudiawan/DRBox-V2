@@ -9,6 +9,7 @@ from model import *
 from rbox_functions import *
 import scipy.misc
 import pickle
+import imageio
 
 TXT_DIR = './data' 
 INPUT_DATA_PATH = TXT_DIR + '/train'
@@ -186,7 +187,8 @@ class DrBoxNet():
                 self.encodedbox = pickle.load(fid)
         for k in range(self.train_im_num):
             if k % 100 == 0:
-                print('Preprocessing {}'.format(k)) 
+                print('Preprocessing {}'.format(k))
+                print('k', k)
             im_rbox_info = self.train_im_list[k]
             im_rbox_info = im_rbox_info.split(' ')
             idx = eval(im_rbox_info[0])
@@ -275,7 +277,7 @@ class DrBoxNet():
                 im_rbox_info = im_rbox_info.split(' ')
                 real_idx = eval(im_rbox_info[0])
                 #input_idx[k] = real_idx
-                im = scipy.misc.imread(os.path.join(INPUT_DATA_PATH, im_rbox_info[1]))
+                im = imageio.imread(os.path.join(INPUT_DATA_PATH, im_rbox_info[1]))
                 imm = np.zeros((IM_HEIGHT, IM_WIDTH, IM_CDIM))
                 if len(im.shape) == 2:
                     for ij in range(IM_CDIM):
@@ -448,7 +450,7 @@ class DrBoxNet():
             return False, 0                                  
     
     def load_prenet(self):
-        data_list = np.load(PRETRAINED_NET_PATH).item()
+        data_list = np.load(PRETRAINED_NET_PATH, allow_pickle=True, encoding='latin1').item()
         data_keys = data_list.keys()
         var_list = self.detector.vars
         for var in var_list:
