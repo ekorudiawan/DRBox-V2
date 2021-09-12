@@ -328,11 +328,12 @@ class DrBoxNet():
                             feed_dict={self.input_im:input_im,
                             self.batch_pos_box:batch_pos_box, self.batch_pos_ind:batch_pos_ind, self.batch_pos_idx:batch_pos_idx, self.batch_neg_mask:batch_neg_mask,
                             self.pos_label:pos_label, self.neg_label:neg_label})
-                with open(SAVE_PATH + '/loss.txt', 'ab+') as files:
-                		files.write(("counter:[%2d], loss:%.8f, loc_loss:%.8f, conf_loss:%.8f, conf_pos_loss:%.8f, conf_neg_loss:%.8f, reg_loss:%.8f") % (counter, loss, loc_loss,conf_loss, conf_pos_loss, conf_neg_loss, reg_loss))
-                		files.write('\n')
-                print("counter:[%2d], loss:%.8f, loc_loss:%.8f, conf_loss:%.8f, conf_pos_loss:%.8f, conf_neg_loss:%.8f, reg_loss:%.8f") % (counter, loss, loc_loss,
-                            conf_loss, conf_pos_loss, conf_neg_loss, reg_loss)
+                print("reg_loss", reg_loss)
+                # with open(SAVE_PATH + '/loss.txt', 'ab+') as files:
+                        # loss_str = str(counter) +" "+str(loss) +" "+str(loc_loss)+" "+str(conf_loss)+" "+str(conf_pos_loss)+" "+str(conf_neg_loss)+" "reg_loss))
+                		# files.write(("counter:[%2d], loss:%.8f, loc_loss:%.8f, conf_loss:%.8f, conf_pos_loss:%.8f, conf_neg_loss:%.8f, reg_loss:%.8f") % (counter, loss, loc_loss,conf_loss, conf_pos_loss, conf_neg_loss, reg_loss))
+                		# files.write('\n')
+                # print("counter:["+str(counter)+"], loss:"+str(loss)+", loc_loss:"+str(loc_loss)+", conf_loss:+"str(conf_loss)"+, conf_pos_loss:"+str(conf_pos_loss)+", conf_neg_loss:"+str(conf_neg_loss)+", reg_loss:"+str(reg_loss)+")
 
             if counter % SAVE_MODEL_INTERVAL == 0:
                 self.save(counter)
