@@ -10,7 +10,7 @@ import pickle
 import numpy as np
 import math
 import matplotlib as mpl
-mpl.use('Agg')
+# mpl.use('Agg')
 import matplotlib.pyplot as plt
 import ctypes
 from ctypes import *
@@ -54,7 +54,7 @@ def cal_pr(route, route_result):
             print ("No score file!")
             continue
         with open(files[idx], 'r') as infile:
-            print files[idx]
+            print(str(files[idx]))
             if infile == None:
                 continue
             for line in infile:
@@ -142,21 +142,21 @@ def pr_curve(route=''):
     all_true_num = cal_true_number(route_test)
     pr_rec, pr_pre = Cal_index(figure_result,all_true_num, route)
     with open(os.path.basename(route)+'.txt','w') as fid:
-		for i in range(len(pr_rec)):
-			fid.write(str(pr_rec[i]))
-			fid.write(' ')
-			fid.write(str(pr_pre[i]))
-			fid.write('\n')
-    fug = plt.figure()
+        for i in range(len(pr_rec)):
+            fid.write(str(pr_rec[i]))
+            fid.write(' ')
+            fid.write(str(pr_pre[i]))
+            fid.write('\n')
+    # fug = plt.figure()
     plt.plot(pr_rec, pr_pre, '.-')
     plt.grid()
     plt.show()
-    print 'Painting...'
+    print('Painting...')
     plt.savefig(os.path.join(route, 'pr_curve.png'))
     bep = BEP(pr_rec, pr_pre)
     aupr = AUPR(pr_rec, pr_pre)
-    print 'BEP:', bep
-    print 'AP:', aupr
+    print('BEP:', bep)
+    print('AP:', aupr)
     
 def Cal_index(figure_result, all_true_num, route):
     if len(figure_result) == 0:
@@ -182,7 +182,7 @@ def Cal_index(figure_result, all_true_num, route):
         if pr_pre[i] < pr_pre[i+1]:
             pr_pre[i] = pr_pre[i+1]
     with open(os.path.join(route, 'precision_recall.txt'),'w') as fid:
-        print os.path.join(route, 'precision_recall.txt')
+        print(os.path.join(route, 'precision_recall.txt'))
         for i in range(len(pr_rec)):
             fid.write(str(pr_rec[i]))
             fid.write(' ')
@@ -197,15 +197,15 @@ def BEP(pr_rec, pr_pre):
     pr_pre = np.squeeze(pr_pre[::-1])
     interval_rec_pre = pr_rec[0]-pr_pre[0]
     if interval_rec_pre < 0:
-		print "The recall rate is too low!\n"
-		return -1
+        print("The recall rate is too low!\n")
+        return -1
     bep = 0
     for i in range(1, len(pr_rec)):
-		if pr_rec[i]-pr_pre[i]< 0:
-			break
-		if pr_rec[i]-pr_pre[i] < interval_rec_pre:
-			interval_rec_pre = pr_rec[i]-pr_pre[i]
-			bep = pr_rec[i]
+        if pr_rec[i]-pr_pre[i]< 0:
+            break
+        if pr_rec[i]-pr_pre[i] < interval_rec_pre:
+            interval_rec_pre = pr_rec[i]-pr_pre[i]
+            bep = pr_rec[i]
     return bep
 
 def AUPR(pr_rec, pr_pre):
