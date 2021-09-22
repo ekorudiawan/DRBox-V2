@@ -14,7 +14,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import ctypes
 from ctypes import *
-
+import cv2 as cv
 
 IM_WIDTH  = 300  
 IM_HEIGHT = 300  #consistent with the settings in the main program
@@ -50,6 +50,7 @@ def cal_pr(route, route_result):
         min_conf = 1
         i = 0
         detected_file = glob(os.path.join(route_result, os.path.basename(files[idx]) + '*.score'))
+        print("Files :", detected_file)
         if len(detected_file) == 0:
             print ("No score file!")
             continue
@@ -99,11 +100,12 @@ def cal_pr(route, route_result):
                     res_box = rbox
                 else:
                     res_box = np.concatenate((res_box, rbox), axis=0)#np.empty
-                i += 1           
+                i += 1
         cpriorbox = (c_double * 5)()
         cgroundtruth = (c_double * 5)()
         if len(res_box) == 0:
             continue
+        # print("Result RBox", res_box)
         overlaps = np.zeros((len(res_box),len(gt_box)))
         for i in range(len(res_box)):
             for j in range(len(gt_box)):

@@ -154,3 +154,4 @@ def NMSOutput(rboxlist, scorelist, nms_threshold, label, test_rbox_output_path):
             index_i = indices_c[i]
             fid.write('{} {} {} {} {} {} {}\n'.format(loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label,
                        loc_c[5*index_i+4], score_c[index_i]))
+    return (loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label, loc_c[5*index_i+4], score_c[index_i])

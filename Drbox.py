@@ -10,6 +10,8 @@ from rbox_functions import *
 import scipy.misc
 import pickle
 import imageio
+from PIL import Image
+import cv2 as cv
 
 TXT_DIR = './data' 
 INPUT_DATA_PATH = TXT_DIR + '/train'
@@ -354,7 +356,7 @@ class DrBoxNet():
             if not os.path.exists(test_result_path):
             		os.makedirs(test_result_path)
             test_rbox_output_path = os.path.join(test_result_path, os.path.basename(test_rbox_gt_path) + '.score')
-            test_im = scipy.misc.imread(test_im_path)
+            test_im = imageio.imread(test_im_path)
             if 'L2' in test_im_path:
                 not_zero   = np.where(test_im != 0)
                 is_zero    = np.where(test_im == 0)
@@ -379,7 +381,7 @@ class DrBoxNet():
                 xBegin, yBegin = 0, 0
                 width_i = int(round(width * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
                 height_i = int(round(height * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
-                image_i = scipy.misc.imresize(test_im, [height_i, width_i, IM_CDIM])
+                image_i = cv.resize(test_im, (width_i, height_i), cv.INTER_AREA)
                 while 1:
                     if islast == 0:                        
                         width_S = IM_WIDTH * TEST_RESOLUTION_OUT[i] / TEST_RESOLUTION_IN #int(round(IM_WIDTH * TEST_RESOLUTION_OUT[i] / TEST_RESOLUTION_IN))
@@ -392,10 +394,10 @@ class DrBoxNet():
                         yBeginHat = int(round(yBegin * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
                         xEndHat = int(round(xEnd * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
                         yEndHat = int(round(yEnd * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
+                        
                         subimage = np.zeros((IM_HEIGHT, IM_WIDTH, IM_CDIM))
-                        subimage[0:yEndHat-yBeginHat, 0:xEndHat-xBeginHat, :] = image_i[yBeginHat:yEndHat, xBeginHat:xEndHat, :]
+                        subimage[0:yEndHat-yBeginHat, 0:xEndHat-xBeginHat, 0:3] = image_i[yBeginHat:yEndHat, xBeginHat:xEndHat, 0:3]
                         inputdata[count] = subimage.astype('float32')
-                        #print xBegin,yBegin
                         inputloc[count] = [xBegin,yBegin,TEST_RESOLUTION_OUT[i]/TEST_RESOLUTION_IN]
                         count = count + 1
                     if count == TEST_BATCH_SIZE or islast == 1:
@@ -428,7 +430,46 @@ class DrBoxNet():
                                 islast = 1
                             else:
                                 break
-            NMSOutput(rboxlist, scorelist, TEST_NMS_THRESHOLD, label, test_rbox_output_path)
+            res = NMSOutput(rboxlist, scorelist, TEST_NMS_THRESHOLD, label, test_rbox_output_path)
+            # print("Result ", res)
+            self.visualize_output(test_im_path, res)
+    
+    def visualize_output(self, filename, nms_out):
+        image = cv.imread(filename)
+        x, y, w, h, label, angle, score = nms_out
+        tl_x = int(x - (w//2))
+        tl_y = int(y - (h//2))
+        bl_x = int(x - (w//2))
+        bl_y = int(y + (h//2))
+
+        tr_x = int(x + (w//2))
+        tr_y = int(y - (h//2))
+        br_x = int(x + (w//2))
+        br_y = int(y + (h//2))
+
+        R = cv.getRotationMatrix2D(center=(x,y), angle=angle, scale=1)
+        tl = np.array([[tl_x], [tl_y], [1]])
+        bl = np.array([[bl_x], [bl_y], [1]])
+        tr = np.array([[tr_x], [tr_y], [1]])
+        br = np.array([[br_x], [br_y], [1]])
+
+        r_tl = R.dot(tl)
+        r_bl = R.dot(bl)
+        r_tr = R.dot(tr)
+        r_br = R.dot(br)
+
+        pointss = np.array([[r_tl[0], r_tl[1]],
+                            [r_tr[0], r_tr[1]],
+                            [r_br[0], r_br[1]],
+                            [r_bl[0], r_bl[1]],], dtype=np.int32)
+
+        pointss = pointss.reshape((- 1 , 1 , 2 ))
+        color = (0,0,255)
+        # print(pointss)
+        cv.polylines(image, [pointss], True, color, 2)
+        cv.imshow("DRBox Output", image)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
     def save(self, step):
         model_name = "DrBoxNet.model"
