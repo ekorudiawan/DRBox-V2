@@ -149,9 +149,13 @@ def NMSOutput(rboxlist, scorelist, nms_threshold, label, test_rbox_output_path):
         indices_c[i] = c_int(-1)
     num_preds = c_int(len(scorelist))
     NMS(loc_c, indices_c, score_c, byref(num_preds), c_double(nms_threshold))
+    # print("====================================")
+    list_result = []
     with open(test_rbox_output_path, 'w') as fid:
         for i in range(num_preds.value):
             index_i = indices_c[i]
             fid.write('{} {} {} {} {} {} {}\n'.format(loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label,
                        loc_c[5*index_i+4], score_c[index_i]))
-    return (loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label, loc_c[5*index_i+4], score_c[index_i])
+            list_result.append([loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label, loc_c[5*index_i+4], score_c[index_i]])
+    return list_result
+    # return (loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label, loc_c[5*index_i+4], score_c[index_i])

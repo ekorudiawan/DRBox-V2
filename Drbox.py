@@ -88,9 +88,9 @@ class DrBoxNet():
         self.pos_label = tf.placeholder(tf.float32, shape=[None, self.cls_num + 1])
         self.neg_label = tf.placeholder(tf.float32, shape=[None, self.cls_num + 1])
         if FLAGS.train:
-        		self.detector = VGG16(self.prior_num, self.para_num, self.cls_num, FPN_NET, USE_THIRD_LAYER, TRAIN_BATCH_SIZE)
+            self.detector = VGG16(self.prior_num, self.para_num, self.cls_num, FPN_NET, USE_THIRD_LAYER, TRAIN_BATCH_SIZE)
         else:
-        		self.detector = VGG16(self.prior_num, self.para_num, self.cls_num, FPN_NET, USE_THIRD_LAYER, TEST_BATCH_SIZE)
+            self.detector = VGG16(self.prior_num, self.para_num, self.cls_num, FPN_NET, USE_THIRD_LAYER, TEST_BATCH_SIZE)
         self.loc, self.conf = self.detector(self.input_im)
         self.conf_softmax = tf.nn.softmax(self.conf)
         self.hard_negative_mining()
@@ -108,15 +108,15 @@ class DrBoxNet():
         self.pos_tensor = pos_tensor
         self.neg_tensor = neg_tensor
         if USE_FOCAL_LOSS:
-		        pos_prob = tf.slice(tf.nn.softmax(pos_tensor),[0,1],[-1,1])
-		        neg_prob = tf.slice(tf.nn.softmax(neg_tensor),[0,0],[-1,1])
-		        self.conf_pos_losses = tf.nn.softmax_cross_entropy_with_logits(logits=pos_tensor, labels=self.pos_label)
-		        self.conf_neg_losses = tf.nn.softmax_cross_entropy_with_logits(logits=neg_tensor, labels=self.neg_label)
-		        self.conf_pos_loss = tf.reduce_mean(tf.multiply((1-pos_prob)**focal_loss_factor, self.conf_pos_losses))
-		        self.conf_neg_loss = tf.reduce_mean(tf.multiply((1-neg_prob)**focal_loss_factor, self.conf_neg_losses))
+            pos_prob = tf.slice(tf.nn.softmax(pos_tensor),[0,1],[-1,1])
+            neg_prob = tf.slice(tf.nn.softmax(neg_tensor),[0,0],[-1,1])
+            self.conf_pos_losses = tf.nn.softmax_cross_entropy_with_logits(logits=pos_tensor, labels=self.pos_label)
+            self.conf_neg_losses = tf.nn.softmax_cross_entropy_with_logits(logits=neg_tensor, labels=self.neg_label)
+            self.conf_pos_loss = tf.reduce_mean(tf.multiply((1-pos_prob)**focal_loss_factor, self.conf_pos_losses))
+            self.conf_neg_loss = tf.reduce_mean(tf.multiply((1-neg_prob)**focal_loss_factor, self.conf_neg_losses))
         else:
-        		self.conf_pos_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pos_tensor, labels=self.pos_label))
-        		self.conf_neg_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=neg_tensor, labels=self.neg_label) * self.batch_neg_mask)
+            self.conf_pos_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pos_tensor, labels=self.pos_label))
+            self.conf_neg_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=neg_tensor, labels=self.neg_label) * self.batch_neg_mask)
         self.conf_loss = self.conf_pos_loss + self.conf_neg_loss
     
     def compute_loc_loss(self):
@@ -354,7 +354,7 @@ class DrBoxNet():
             test_rbox_gt_path = os.path.join(TEST_DATA_PATH, test_im_rbox_info[0]+'.rbox')
             test_result_path = TXT_DIR + '/' + os.path.basename(SAVE_PATH)
             if not os.path.exists(test_result_path):
-            		os.makedirs(test_result_path)
+                os.makedirs(test_result_path)
             test_rbox_output_path = os.path.join(test_result_path, os.path.basename(test_rbox_gt_path) + '.score')
             test_im = imageio.imread(test_im_path)
             if 'L2' in test_im_path:
@@ -430,43 +430,51 @@ class DrBoxNet():
                                 islast = 1
                             else:
                                 break
-            res = NMSOutput(rboxlist, scorelist, TEST_NMS_THRESHOLD, label, test_rbox_output_path)
-            # print("Result ", res)
-            self.visualize_output(test_im_path, res)
+            nms_out = NMSOutput(rboxlist, scorelist, TEST_NMS_THRESHOLD, label, test_rbox_output_path)
+            self.visualize_output(test_im_path, nms_out)
     
-    def visualize_output(self, filename, nms_out):
+    def visualize_output(self, filename, nms_out, score_threshold=0.9):
         image = cv.imread(filename)
-        x, y, w, h, label, angle, score = nms_out
-        tl_x = int(x - (w//2))
-        tl_y = int(y - (h//2))
-        bl_x = int(x - (w//2))
-        bl_y = int(y + (h//2))
+        for i in range(len(nms_out)):
+            # x, y, w, h, label, angle, score = nms_out[i]
+            x = nms_out[i][0]
+            y = nms_out[i][1]
+            w = nms_out[i][2]
+            h = nms_out[i][3]
+            label = nms_out[i][4]
+            angle = nms_out[i][5]
+            score = nms_out[i][6]
+            
+            if score >= score_threshold:
+                tl_x = int(x - (w//2))
+                tl_y = int(y - (h//2))
+                bl_x = int(x - (w//2))
+                bl_y = int(y + (h//2))
 
-        tr_x = int(x + (w//2))
-        tr_y = int(y - (h//2))
-        br_x = int(x + (w//2))
-        br_y = int(y + (h//2))
+                tr_x = int(x + (w//2))
+                tr_y = int(y - (h//2))
+                br_x = int(x + (w//2))
+                br_y = int(y + (h//2))
 
-        R = cv.getRotationMatrix2D(center=(x,y), angle=angle, scale=1)
-        tl = np.array([[tl_x], [tl_y], [1]])
-        bl = np.array([[bl_x], [bl_y], [1]])
-        tr = np.array([[tr_x], [tr_y], [1]])
-        br = np.array([[br_x], [br_y], [1]])
+                R = cv.getRotationMatrix2D(center=(x,y), angle=angle, scale=1)
+                tl = np.array([[tl_x], [tl_y], [1]])
+                bl = np.array([[bl_x], [bl_y], [1]])
+                tr = np.array([[tr_x], [tr_y], [1]])
+                br = np.array([[br_x], [br_y], [1]])
 
-        r_tl = R.dot(tl)
-        r_bl = R.dot(bl)
-        r_tr = R.dot(tr)
-        r_br = R.dot(br)
+                r_tl = R.dot(tl)
+                r_bl = R.dot(bl)
+                r_tr = R.dot(tr)
+                r_br = R.dot(br)
 
-        pointss = np.array([[r_tl[0], r_tl[1]],
-                            [r_tr[0], r_tr[1]],
-                            [r_br[0], r_br[1]],
-                            [r_bl[0], r_bl[1]],], dtype=np.int32)
+                pointss = np.array([[r_tl[0], r_tl[1]],
+                                    [r_tr[0], r_tr[1]],
+                                    [r_br[0], r_br[1]],
+                                    [r_bl[0], r_bl[1]],], dtype=np.int32)
 
-        pointss = pointss.reshape((- 1 , 1 , 2 ))
-        color = (0,0,255)
-        # print(pointss)
-        cv.polylines(image, [pointss], True, color, 2)
+                pointss = pointss.reshape((- 1 , 1 , 2 ))
+                color = (0,0,255)
+                cv.polylines(image, [pointss], True, color, 2)
         cv.imshow("DRBox Output", image)
         cv.waitKey(0)
         cv.destroyAllWindows()
