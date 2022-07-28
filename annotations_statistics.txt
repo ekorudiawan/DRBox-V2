@@ -1,0 +1,9 @@
+annotations statistics
+Length
+min l : 100
+med l : 144
+max l : 197
+Width
+min w : 16
+med w : 28
+max w : 54

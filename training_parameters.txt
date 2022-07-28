@@ -1,0 +1,5 @@
+Time start :08:03:01
+Time end :08:03:01
+Elapsed time :0:00:00.457767
+Training Parameter
+Total prior rboxes: 127242
