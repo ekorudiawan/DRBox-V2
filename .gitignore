@@ -163,3 +163,7 @@ data/train/
 data/test/
 data/result/
 result/model/
+data/dataset-rbox-baut.zip
+percobaan_1/
+percobaan_2/
+vgg16.npy
