@@ -166,4 +166,5 @@ result/model/
 data/dataset-rbox-baut.zip
 percobaan_1/
 percobaan_2/
+images/
 vgg16.npy
