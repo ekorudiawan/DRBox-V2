@@ -5,8 +5,11 @@ import time
 import cv2
 import sys
 import numpy as np
+import glob
+import os
 
-IMAGE_RGB_PATH = "../anaconda3/data/data_vision{:01d}.jpg"
+IMAGE_RGB_PATH = "./images/image_{:01d}.jpg"
+CURRENT_PATH = os.getcwd()
 
 ARUCO_DICT = {
     "DICT_4X4_50": cv2.aruco.DICT_4X4_50,
@@ -69,6 +72,20 @@ def main():
     print("[INFO] starting video stream...")
     
     frameId = 0
+    print("Current PATH : ", CURRENT_PATH)
+
+    if glob.glob(CURRENT_PATH + "/image_counter.txt"):
+        print("File exist")
+        with open(CURRENT_PATH + "/image_counter.txt", "r") as files:
+            lines = files.readlines()
+            if len(lines) > 0:
+                text = lines[0]
+                frameId = int(text)
+    else:
+        print("File not exist")
+        with open(CURRENT_PATH + "/image_counter.txt", "w") as files:
+            files.writelines(str(frameId))
+
     try:
         while True:
             # Wait for a coherent pair of frames: depth and color
@@ -95,10 +112,13 @@ def main():
             # detect ArUco markers in the input frame
             (corners, ids, rejected) = cv2.aruco.detectMarkers(color_image, arucoDict, parameters=arucoParams)
             # verify *at least* one ArUco marker was detected
-            if len(corners) > 0:
+            if len(corners) == 4:
                 # flatten the ArUco IDs list
                 ids = ids.flatten()
                 # loop over the detected ArUCo corners
+                list_marker_points = [[0,0],[0,0],[0,0],[0,0],[0,0]] # order dalam list 3, 2, 1, 0
+                
+                print("======")
                 for (markerCorner, markerID) in zip(corners, ids):
                     # extract the marker corners (which are always returned
                     # in top-left, top-right, bottom-right, and bottom-left order
@@ -118,11 +138,21 @@ def main():
                     # ArUco marker
                     cX = int((topLeft[0] + bottomRight[0]) / 2.0)
                     cY = int((topLeft[1] + bottomRight[1]) / 2.0)
+                    
+                    if markerID < len(list_marker_points):
+                        list_marker_points[markerID]=[cX,cY]
+                                       
                     print("Distance at Marker "+ str(markerID) + ":" + str(depth_frame.get_distance(cX, cY)))
                     cv2.circle(resized_color_image, (cX, cY), 4, (0, 0, 255), -1)
                     # draw the ArUco marker ID on the frame
-                    cv2.putText(resized_color_image, str(markerID), (topLeft[0], topLeft[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            
+                    cv2.putText(resized_color_image, str(markerID), (cX, cY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    
+                initial_points = np.float32([list_marker_points[0],list_marker_points[1],list_marker_points[2],list_marker_points[3]])
+                target_points = np.float32([[0,300], [0,0], [300,300], [300,0]])
+                M = cv2.getPerspectiveTransform(initial_points, target_points)
+                dst = cv2.warpPerspective(resized_color_image,M,(300,300))
+                roi = cv2.rotate(dst.copy(), cv2.ROTATE_90_CLOCKWISE)
+
             # If depth and color resolutions are different, resize color image to match depth image for display
             if depth_colormap_dim != color_colormap_dim:
                 images = np.hstack((resized_color_image, depth_colormap))
@@ -131,14 +161,18 @@ def main():
             
             cv2.namedWindow("RealSense Viewer", cv2.WINDOW_AUTOSIZE)
             cv2.imshow("RealSense Viewer", images)
+            cv2.namedWindow("Result", cv2.WINDOW_AUTOSIZE)
+            cv2.imshow("Result", roi)
             key = cv2.waitKey(1) & 0xFF
             # if the `q` key was pressed, break from the loop
             if key == ord("q"):
                 break
-            elif key == ord('c'):
-                cv2.imwrite(IMAGE_RGB_PATH.format(frameId), color_image)
+            elif key == ord('s'):
+                cv2.imwrite(IMAGE_RGB_PATH.format(frameId), roi)
                 print ('Capture %d'%(frameId))
                 frameId += 1
+                with open(CURRENT_PATH + "/image_counter.txt", "w") as files:
+                    files.writelines(str(frameId))
     finally:
         # Stop streaming
         pipeline.stop()
