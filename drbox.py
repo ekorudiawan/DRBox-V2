@@ -12,13 +12,14 @@ import pickle
 import imageio
 from PIL import Image
 import cv2 as cv
+from datetime import datetime
 
 TXT_DIR = './data' 
 INPUT_DATA_PATH = TXT_DIR + '/train'
 TEST_DATA_PATH = TXT_DIR + '/test'
 PRETRAINED_NET_PATH = "./vgg16.npy"
 SAVE_PATH = './result' 
-TRAIN_BATCH_SIZE = 8
+TRAIN_BATCH_SIZE = 16
 IM_HEIGHT = 300
 IM_WIDTH = 300
 IM_CDIM = 3
@@ -29,18 +30,22 @@ FEA_WIDTH3 = 75
 STEPSIZE4 = 8
 STEPSIZE3 = 4
 
-
 PRIOR_ANGLES = [0, 30, 60, 90, 120, 150]
-PRIOR_HEIGHTS =[[4.0, 7.0, 10.0, 13.0],[3.0,8.0,12.0,17.0,23.0]] #[3.0,8.0,12.0,17.0,23.0] #
-PRIOR_WIDTHS = [[15.0, 25.0, 35.0, 45.0],[20.0,35.0,50.0,80.0,100.0]]#[20.0,35.0,50.0,80.0,100.0]  
+#PRIOR_HEIGHTS =[[4.0, 7.0, 10.0, 13.0],[3.0,8.0,12.0,17.0,23.0]] #[3.0,8.0,12.0,17.0,23.0] #
+#PRIOR_WIDTHS = [[15.0, 25.0, 35.0, 45.0],[20.0,35.0,50.0,80.0,100.0]]#[20.0,35.0,50.0,80.0,100.0]  
+PRIOR_HEIGHTS = [[100.0, 144.0, 197.0],[100.0, 144.0, 197.0]]
+PRIOR_WIDTHS = [[16.0, 28.0, 54.0],[16.0, 28.0, 54.0]]
+#######
 
-
-ITERATION_NUM = 50000 
+ITERATION_NUM = 10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #50000 
 OVERLAP_THRESHOLD = 0.5
-IS180 = False
+IS180 = True
 NP_RATIO = 3
 LOC_WEIGHTS = [0.1, 0.1, 0.2, 0.2, 0.1]
-LOAD_PREVIOUS_POS = False
+
+# Ini untuk loading parameter prior rbox yang sudah digenerate sebelumnya
+LOAD_PREVIOUS_POS = True
+
 WEIGHT_DECAY = 0.0005
 DISPLAY_INTERVAL = 100 #100
 SAVE_MODEL_INTERVAL = 2000
@@ -78,6 +83,12 @@ class DrBoxNet():
         #self.input_idx = tf.placeholder(tf.int32, shape=[None])
         self.prior_num = [len(PRIOR_ANGLES)*len(PRIOR_WIDTHS[0]), len(PRIOR_ANGLES)*len(PRIOR_WIDTHS[1])]
         self.total_prior_num = FEA_HEIGHT4*FEA_WIDTH4*self.prior_num[1]+FEA_HEIGHT3*FEA_WIDTH3*self.prior_num[0]*USE_THIRD_LAYER        
+        print("Total Prior Num : ", self.total_prior_num)
+        with open("training_parameters.txt", "a") as files:
+            files.writelines("Training Parameter")
+            files.writelines('\n')
+            files.writelines("Total prior rboxes: " + str(self.total_prior_num))
+            files.writelines('\n')
         self.para_num = 5
         self.cls_num = 1
         self.batch_pos_box = tf.placeholder(tf.float32, shape=[None, self.para_num])
@@ -187,6 +198,12 @@ class DrBoxNet():
                 self.positive_indice = pickle.load(fid)
             with open(os.path.join(INPUT_DATA_PATH, 'encodedbox.pkl'),'rb') as fid:
                 self.encodedbox = pickle.load(fid)
+
+        time_start = datetime.now()
+        with open("training_parameters.txt","a") as files:
+            files.writelines("Time start :" + time_start.strftime("%H:%M:%S"))
+            files.writelines('\n')
+
         for k in range(self.train_im_num):
             if k % 100 == 0:
                 print('Preprocessing {}'.format(k))
@@ -232,6 +249,13 @@ class DrBoxNet():
                 pickle.dump(self.positive_indice, fid)
             with open(os.path.join(INPUT_DATA_PATH, 'encodedbox.pkl'),'wb') as fid:
                 pickle.dump(self.encodedbox, fid)
+
+        time_end = datetime.now()
+        with open("training_parameters.txt","a") as files:
+            files.writelines("Time end :" + time_end.strftime("%H:%M:%S"))
+            files.writelines('\n')
+            files.writelines("Elapsed time :" + str(time_end - time_start))
+            files.writelines('\n')
 
     def get_next_batch_list(self):    
         idx = self.train_list_idx        
@@ -331,11 +355,11 @@ class DrBoxNet():
                             self.batch_pos_box:batch_pos_box, self.batch_pos_ind:batch_pos_ind, self.batch_pos_idx:batch_pos_idx, self.batch_neg_mask:batch_neg_mask,
                             self.pos_label:pos_label, self.neg_label:neg_label})
                 print("Loss", loss)
-                # with open(SAVE_PATH + '/loss.txt', 'ab+') as files:
-                        # loss_str = str(counter) +" "+str(loss) +" "+str(loc_loss)+" "+str(conf_loss)+" "+str(conf_pos_loss)+" "+str(conf_neg_loss)+" "reg_loss))
-                		# files.write(("counter:[%2d], loss:%.8f, loc_loss:%.8f, conf_loss:%.8f, conf_pos_loss:%.8f, conf_neg_loss:%.8f, reg_loss:%.8f") % (counter, loss, loc_loss,conf_loss, conf_pos_loss, conf_neg_loss, reg_loss))
-                		# files.write('\n')
-                # print("counter:["+str(counter)+"], loss:"+str(loss)+", loc_loss:"+str(loc_loss)+", conf_loss:+"str(conf_loss)"+, conf_pos_loss:"+str(conf_pos_loss)+", conf_neg_loss:"+str(conf_neg_loss)+", reg_loss:"+str(reg_loss)+")
+                print("counter:[" + str(counter) + "], loss:" + str(loss) + ", loc_loss:" + str(loc_loss) + ", conf_loss:" + str(conf_loss) + ", conf_pos_loss:" + str(conf_pos_loss) + ", conf_neg_loss:" + str(conf_neg_loss) + ", reg_loss:" + str(reg_loss))
+                with open('training_loss.txt', 'a') as files:
+                    loss_str = str(counter) + " " + str(loss) + " " + str(loc_loss) + " " + str(conf_loss) + " " + str(conf_pos_loss) + " " + str(conf_neg_loss) + " " + str(reg_loss)
+                    files.write(loss_str)
+                    files.write('\n')
 
             if counter % SAVE_MODEL_INTERVAL == 0:
                 self.save(counter)
@@ -365,7 +389,7 @@ class DrBoxNet():
                     test_im[is_zero[0][temp_idx], is_zero[1][temp_idx]] = mean_value   
             temp = np.zeros((test_im.shape[0], test_im.shape[1], IM_CDIM))
             for chid in range(IM_CDIM):
-                temp[:,:,chid] = test_im
+                temp[:,:,chid] = test_im[:,:,chid]
             test_im = temp
             [height, width, _] = test_im.shape
             print('Start detection'+test_im_path)
