@@ -499,9 +499,10 @@ class DrBoxNet():
                 pointss = pointss.reshape((- 1 , 1 , 2 ))
                 color = (0,0,255)
                 cv.polylines(image, [pointss], True, color, 2)
-        cv.imshow("DRBox Output", image)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
+        # Save result to folder ./data/result/result_xxxxxx.jpg
+        result_filename = filename.replace("test", "result")
+        print("Result filename :", result_filename)
+        cv.imwrite(result_filename, image)
 
     def save(self, step):
         model_name = "DrBoxNet.model"
