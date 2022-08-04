@@ -33,11 +33,11 @@ STEPSIZE3 = 4
 PRIOR_ANGLES = [0, 30, 60, 90, 120, 150]
 #PRIOR_HEIGHTS =[[4.0, 7.0, 10.0, 13.0],[3.0,8.0,12.0,17.0,23.0]] #[3.0,8.0,12.0,17.0,23.0] #
 #PRIOR_WIDTHS = [[15.0, 25.0, 35.0, 45.0],[20.0,35.0,50.0,80.0,100.0]]#[20.0,35.0,50.0,80.0,100.0]  
-PRIOR_HEIGHTS = [[100.0, 144.0, 197.0],[100.0, 144.0, 197.0]]
-PRIOR_WIDTHS = [[16.0, 28.0, 54.0],[16.0, 28.0, 54.0]]
+PRIOR_HEIGHTS = [[8.0, 75.0],[8.0, 75.0]]
+PRIOR_WIDTHS = [[8.0, 75.0],[8.0, 75.0]]
 #######
 
-ITERATION_NUM = 10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #50000 
+ITERATION_NUM = 50000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #50000 
 OVERLAP_THRESHOLD = 0.5
 IS180 = True
 NP_RATIO = 3
@@ -379,7 +379,7 @@ class DrBoxNet():
             test_result_path = TXT_DIR + '/' + os.path.basename(SAVE_PATH)
             if not os.path.exists(test_result_path):
                 os.makedirs(test_result_path)
-            test_rbox_output_path = os.path.join(test_result_path, os.path.basename(test_rbox_gt_path) + '.score')
+            test_rbox_output_path = os.path.join(test_result_path, os.path.basename(test_rbox_gt_path).replace('.jpg','') + '.score')
             test_im = imageio.imread(test_im_path)
             if 'L2' in test_im_path:
                 not_zero   = np.where(test_im != 0)
@@ -457,7 +457,7 @@ class DrBoxNet():
             nms_out = NMSOutput(rboxlist, scorelist, TEST_NMS_THRESHOLD, label, test_rbox_output_path)
             self.visualize_output(test_im_path, nms_out)
     
-    def visualize_output(self, filename, nms_out, score_threshold=0.9):
+    def visualize_output(self, filename, nms_out, score_threshold=0.5):
         image = cv.imread(filename)
         for i in range(len(nms_out)):
             # x, y, w, h, label, angle, score = nms_out[i]
@@ -468,7 +468,8 @@ class DrBoxNet():
             label = nms_out[i][4]
             angle = nms_out[i][5]
             score = nms_out[i][6]
-            
+            color = (0,0,255)
+            cv.circle(image, (int(x),int(y)), 2, color, -1)
             if score >= score_threshold:
                 tl_x = int(x - (w//2))
                 tl_y = int(y - (h//2))
@@ -480,7 +481,7 @@ class DrBoxNet():
                 br_x = int(x + (w//2))
                 br_y = int(y + (h//2))
 
-                R = cv.getRotationMatrix2D(center=(x,y), angle=angle, scale=1)
+                R = cv.getRotationMatrix2D(center=(x,y), angle=-angle, scale=1)
                 tl = np.array([[tl_x], [tl_y], [1]])
                 bl = np.array([[bl_x], [bl_y], [1]])
                 tr = np.array([[tr_x], [tr_y], [1]])
@@ -497,7 +498,6 @@ class DrBoxNet():
                                     [r_bl[0], r_bl[1]],], dtype=np.int32)
 
                 pointss = pointss.reshape((- 1 , 1 , 2 ))
-                color = (0,0,255)
                 cv.polylines(image, [pointss], True, color, 2)
         # Save result to folder ./data/result/result_xxxxxx.jpg
         result_filename = filename.replace("test", "result")
