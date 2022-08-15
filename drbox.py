@@ -30,11 +30,18 @@ FEA_WIDTH3 = 75
 STEPSIZE4 = 8
 STEPSIZE3 = 4
 
-PRIOR_ANGLES = [0, 30, 60, 90, 120, 150]
+PRIOR_ANGLES = [0, 30, 60, 90, 120, 150] # Percobaan 1
+# PRIOR_ANGLES = [0, 20, 40, 60, 80, 100, 120, 140, 160] # Percobaan 2
+# PRIOR_ANGLES = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170] # Percobaan 3
+
 #PRIOR_HEIGHTS =[[4.0, 7.0, 10.0, 13.0],[3.0,8.0,12.0,17.0,23.0]] #[3.0,8.0,12.0,17.0,23.0] #
 #PRIOR_WIDTHS = [[15.0, 25.0, 35.0, 45.0],[20.0,35.0,50.0,80.0,100.0]]#[20.0,35.0,50.0,80.0,100.0]  
-PRIOR_HEIGHTS = [[8.0, 75.0],[8.0, 75.0]]
-PRIOR_WIDTHS = [[8.0, 75.0],[8.0, 75.0]]
+
+# Percobaan 1
+#PRIOR_HEIGHTS = [[10.0, 15.0, 75.0, 80.0],[10.0, 15.0, 75.0, 80.0]]
+#PRIOR_WIDTHS = [[10.0, 15.0, 75.0, 80.0],[10.0, 15.0, 75.0, 80.0]]
+PRIOR_HEIGHTS = [[15, 90], [15, 90]]
+PRIOR_WIDTHS = [[15, 90], [15, 90]]
 #######
 
 ITERATION_NUM = 50000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #10000 #50000 
@@ -285,6 +292,7 @@ class DrBoxNet():
             print(" [!] Load the pretrained network FINISHED")
         
         for iter_num in range(ITERATION_NUM+1):
+            # print("Iter num : ", iter_num)
             input_im = np.zeros((TRAIN_BATCH_SIZE, IM_HEIGHT, IM_WIDTH, IM_CDIM))
             input_im = input_im.astype('float32')
             batch_list = self.get_next_batch_list()
@@ -372,6 +380,8 @@ class DrBoxNet():
         else:
             print(" [!] Load failed...")
         label = 1
+        # Start time measurement
+        time_start = datetime.now()
         for test_info in self.test_im_list:
             test_im_rbox_info = test_info.split(' ')
             test_im_path = os.path.join(TEST_DATA_PATH, test_im_rbox_info[0])
@@ -456,7 +466,11 @@ class DrBoxNet():
                                 break
             nms_out = NMSOutput(rboxlist, scorelist, TEST_NMS_THRESHOLD, label, test_rbox_output_path)
             self.visualize_output(test_im_path, nms_out)
-    
+        time_end = datetime.now()
+        elapsed_time = (time_end - time_start)
+        print("Computation time for 100 images : ", str(elapsed_time))
+        print("Computation time for 1 images : ", str(elapsed_time/100.0))
+
     def visualize_output(self, filename, nms_out, score_threshold=0.5):
         image = cv.imread(filename)
         for i in range(len(nms_out)):
@@ -469,7 +483,7 @@ class DrBoxNet():
             angle = nms_out[i][5]
             score = nms_out[i][6]
             color = (0,0,255)
-            cv.circle(image, (int(x),int(y)), 2, color, -1)
+            # cv.circle(image, (int(x),int(y)), 2, color, -1)
             if score >= score_threshold:
                 tl_x = int(x - (w//2))
                 tl_y = int(y - (h//2))
@@ -496,8 +510,9 @@ class DrBoxNet():
                                     [r_tr[0], r_tr[1]],
                                     [r_br[0], r_br[1]],
                                     [r_bl[0], r_bl[1]],], dtype=np.int32)
-
+                
                 pointss = pointss.reshape((- 1 , 1 , 2 ))
+                cv.circle(image, (int(x), int(y)), 2, color, -1)
                 cv.polylines(image, [pointss], True, color, 2)
         # Save result to folder ./data/result/result_xxxxxx.jpg
         result_filename = filename.replace("test", "result")
