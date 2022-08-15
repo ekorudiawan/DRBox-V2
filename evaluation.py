@@ -21,7 +21,7 @@ IM_HEIGHT = 300  #consistent with the settings in the main program
 so = ctypes.cdll.LoadLibrary
 librbox = so("./librbox.so")
 overlap = librbox.Overlap
-OVERLAP_THRESHOLD= 0.3
+OVERLAP_THRESHOLD= 0.9
 overlap.argtypes = (POINTER(c_double),POINTER(c_double))
 overlap.restype  =  c_double
 route_test = "./data/test" 
@@ -41,6 +41,7 @@ def cal_pr(route, route_result):
     ''' generate a file (all_figures.txt) to caculate the precision and the recall'''
     fid      = open(os.path.join(route_result, 'all_figures.txt'),'w')
     files    = glob(os.path.join(route, '*.rbox'))
+    print("Files : ", files)
     true_conf= {}
     true_idx = {}
     true_iou = {}
@@ -50,7 +51,7 @@ def cal_pr(route, route_result):
         min_conf = 1
         i = 0
         detected_file = glob(os.path.join(route_result, os.path.basename(files[idx]) + '*.score'))
-        print("Files :", detected_file)
+        print("Files :", os.path.basename(files[idx]))
         if len(detected_file) == 0:
             print ("No score file!")
             continue
@@ -151,6 +152,9 @@ def pr_curve(route=''):
             fid.write('\n')
     # fug = plt.figure()
     plt.plot(pr_rec, pr_pre, '.-')
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Precision-Recall Curve")
     plt.grid()
     plt.show()
     print('Painting...')
