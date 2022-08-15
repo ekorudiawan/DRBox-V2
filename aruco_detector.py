@@ -8,6 +8,8 @@ import numpy as np
 import glob
 import os
 
+SHOW_DEPTH = False
+
 IMAGE_RGB_PATH = "./images/image_{:01d}.jpg"
 CURRENT_PATH = os.getcwd()
 
@@ -34,7 +36,6 @@ ARUCO_DICT = {
     "DICT_APRILTAG_36h10": cv2.aruco.DICT_APRILTAG_36h10,
     "DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11
 }
-
 
 def main():
     # Configure depth and color streams
@@ -108,7 +109,12 @@ def main():
                 resized_color_image = cv2.resize(color_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
             else:
                 resized_color_image = color_image
-            
+
+            # original image
+            original_image = resized_color_image.copy()
+            # create zero image
+            roi = np.zeros((300,300,3), np.uint8)
+
             # detect ArUco markers in the input frame
             (corners, ids, rejected) = cv2.aruco.detectMarkers(color_image, arucoDict, parameters=arucoParams)
             # verify *at least* one ArUco marker was detected
@@ -150,14 +156,17 @@ def main():
                 initial_points = np.float32([list_marker_points[0],list_marker_points[1],list_marker_points[2],list_marker_points[3]])
                 target_points = np.float32([[0,300], [0,0], [300,300], [300,0]])
                 M = cv2.getPerspectiveTransform(initial_points, target_points)
-                dst = cv2.warpPerspective(resized_color_image,M,(300,300))
+                dst = cv2.warpPerspective(original_image, M, (300,300))
                 roi = cv2.rotate(dst.copy(), cv2.ROTATE_90_CLOCKWISE)
-
-            # If depth and color resolutions are different, resize color image to match depth image for display
-            if depth_colormap_dim != color_colormap_dim:
-                images = np.hstack((resized_color_image, depth_colormap))
+            
+            if SHOW_DEPTH:
+                # If depth and color resolutions are different, resize color image to match depth image for display
+                if depth_colormap_dim != color_colormap_dim:
+                    images = np.hstack((resized_color_image, depth_colormap))
+                else:
+                    images = np.hstack((color_image, depth_colormap))
             else:
-                images = np.hstack((color_image, depth_colormap))
+                images = resized_color_image
             
             cv2.namedWindow("RealSense Viewer", cv2.WINDOW_AUTOSIZE)
             cv2.imshow("RealSense Viewer", images)
