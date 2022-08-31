@@ -84,8 +84,10 @@ def main():
             else:
                 images = resized_color_image
             
-            cv2.namedWindow("RealSense Viewer", cv2.WINDOW_AUTOSIZE)
-            cv2.imshow("RealSense Viewer", images)
+            cv2.namedWindow("RealSense RGB Viewer", cv2.WINDOW_AUTOSIZE)
+            cv2.imshow("RealSense RGB Viewer", images)
+            cv2.namedWindow("RealSense Depth Viewer", cv2.WINDOW_AUTOSIZE)
+            cv2.imshow("RealSense Depth Viewer", depth_colormap)
             
             key = cv2.waitKey(1) & 0xFF
             # if the `q` key was pressed, break from the loop
@@ -99,7 +101,8 @@ def main():
                         print("Save list_depth_frame.pickle ")
                 break
             elif key == ord('s'):
-                print("Add image to list")
+                print("Add image to list !")
+                print("Total image : ", len(list_color_frame))
                 list_color_frame.append(color_image)
                 list_depth_frame.append(depth_image)
     
