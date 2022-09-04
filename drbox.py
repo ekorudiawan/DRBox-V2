@@ -13,6 +13,31 @@ import imageio
 from PIL import Image
 import cv2 as cv
 from datetime import datetime
+import tempfile
+
+ARUCO_DICT = {
+    "DICT_4X4_50": cv.aruco.DICT_4X4_50,
+    "DICT_4X4_100": cv.aruco.DICT_4X4_100,
+    "DICT_4X4_250": cv.aruco.DICT_4X4_250,
+    "DICT_4X4_1000": cv.aruco.DICT_4X4_1000,
+    "DICT_5X5_50": cv.aruco.DICT_5X5_50,
+    "DICT_5X5_100": cv.aruco.DICT_5X5_100,
+    "DICT_5X5_250": cv.aruco.DICT_5X5_250,
+    "DICT_5X5_1000": cv.aruco.DICT_5X5_1000,
+    "DICT_6X6_50": cv.aruco.DICT_6X6_50,
+    "DICT_6X6_100": cv.aruco.DICT_6X6_100,
+    "DICT_6X6_250": cv.aruco.DICT_6X6_250,
+    "DICT_6X6_1000": cv.aruco.DICT_6X6_1000,
+    "DICT_7X7_50": cv.aruco.DICT_7X7_50,
+    "DICT_7X7_100": cv.aruco.DICT_7X7_100,
+    "DICT_7X7_250": cv.aruco.DICT_7X7_250,
+    "DICT_7X7_1000": cv.aruco.DICT_7X7_1000,
+    "DICT_ARUCO_ORIGINAL": cv.aruco.DICT_ARUCO_ORIGINAL,
+    "DICT_APRILTAG_16h5": cv.aruco.DICT_APRILTAG_16h5,
+    "DICT_APRILTAG_25h9": cv.aruco.DICT_APRILTAG_25h9,
+    "DICT_APRILTAG_36h10": cv.aruco.DICT_APRILTAG_36h10,
+    "DICT_APRILTAG_36h11": cv.aruco.DICT_APRILTAG_36h11
+}
 
 TXT_DIR = './data' 
 INPUT_DATA_PATH = TXT_DIR + '/train'
@@ -30,8 +55,8 @@ FEA_WIDTH3 = 75
 STEPSIZE4 = 8
 STEPSIZE3 = 4
 
-PRIOR_ANGLES = [0, 30, 60, 90, 120, 150] # Percobaan 1
-# PRIOR_ANGLES = [0, 20, 40, 60, 80, 100, 120, 140, 160] # Percobaan 2
+# PRIOR_ANGLES = [0, 30, 60, 90, 120, 150] # Percobaan 1
+PRIOR_ANGLES = [0, 20, 40, 60, 80, 100, 120, 140, 160] # Percobaan 2
 # PRIOR_ANGLES = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170] # Percobaan 3
 
 #PRIOR_HEIGHTS =[[4.0, 7.0, 10.0, 13.0],[3.0,8.0,12.0,17.0,23.0]] #[3.0,8.0,12.0,17.0,23.0] #
@@ -60,7 +85,10 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0" # select the used GPU
 TEST_BATCH_SIZE = 1
 TEST_RESOLUTION_IN = 3
 TEST_RESOLUTION_OUT = [3]
-TEST_SCORE_THRESHOLD = 0.2
+
+# Ini yang divariasikan untuk score threshold
+TEST_SCORE_THRESHOLD = 0.1
+
 TEST_NMS_THRESHOLD = 0.1
 TEST_HEIGHT_STEP = 0.85
 TEST_WIDTH_STEP = 0.85
@@ -402,7 +430,7 @@ class DrBoxNet():
                 temp[:,:,chid] = test_im[:,:,chid]
             test_im = temp
             [height, width, _] = test_im.shape
-            print('Start detection'+test_im_path)
+            print('Start detection' + test_im_path)
             count = 0
             islast = 0
             inputdata = np.zeros((TEST_BATCH_SIZE, IM_HEIGHT, IM_WIDTH, IM_CDIM))
@@ -470,7 +498,7 @@ class DrBoxNet():
         elapsed_time = (time_end - time_start)
         print("Computation time for 100 images : ", str(elapsed_time))
         print("Computation time for 1 images : ", str(elapsed_time/100.0))
-
+    
     def visualize_output(self, filename, nms_out, score_threshold=0.5):
         image = cv.imread(filename)
         for i in range(len(nms_out)):
@@ -506,18 +534,247 @@ class DrBoxNet():
                 r_tr = R.dot(tr)
                 r_br = R.dot(br)
 
-                pointss = np.array([[r_tl[0], r_tl[1]],
+                points = np.array([[r_tl[0], r_tl[1]],
                                     [r_tr[0], r_tr[1]],
                                     [r_br[0], r_br[1]],
                                     [r_bl[0], r_bl[1]],], dtype=np.int32)
                 
-                pointss = pointss.reshape((- 1 , 1 , 2 ))
+                points = points.reshape((- 1 , 1 , 2 ))
                 cv.circle(image, (int(x), int(y)), 2, color, -1)
-                cv.polylines(image, [pointss], True, color, 2)
+                cv.polylines(image, [points], True, color, 2)
         # Save result to folder ./data/result/result_xxxxxx.jpg
         result_filename = filename.replace("test", "result")
         print("Result filename :", result_filename)
         cv.imwrite(result_filename, image)
+    
+    def test_from_depth(self):
+        # Start time measurement
+        time_start = datetime.now()
+
+        # Load from pickle
+        CURRENT_PATH = os.getcwd()
+        with open(CURRENT_PATH + '/d455_data/list_color_frame.pickle.5a', 'rb') as f:
+            list_color_frame = pickle.load(f)
+        with open(CURRENT_PATH + '/d455_data/list_depth_frame.pickle.5a', 'rb') as f:
+            list_depth_frame = pickle.load(f)
+        
+        # Load the trained model
+        could_load, checkpoint_counter = self.load()
+        if could_load:
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
+        label = 1
+        
+        arucoDict = cv.aruco.Dictionary_get(ARUCO_DICT['DICT_ARUCO_ORIGINAL'])
+        arucoParams = cv.aruco.DetectorParameters_create()
+
+        for i in range(len(list_color_frame)):
+            print("Test image number : ", i)
+            image_from_list = list_color_frame[i]
+            cv_color_img = image_from_list.copy()
+            cv_depth_img = list_depth_frame[i]
+
+            # detect ArUco markers in the input frame
+            (corners, ids, rejected) = cv.aruco.detectMarkers(cv_color_img, arucoDict, parameters=arucoParams)
+            if len(corners) == 4:
+                # flatten the ArUco IDs list
+                ids = ids.flatten()
+                # loop over the detected ArUCo corners
+                list_marker_points = [[0,0],[0,0],[0,0],[0,0],[0,0]] # order dalam list 3, 2, 1, 0
+                for (markerCorner, markerID) in zip(corners, ids):
+                    # extract the marker corners (which are always returned
+                    # in top-left, top-right, bottom-right, and bottom-left order
+                    corners = markerCorner.reshape((4, 2))
+                    (topLeft, topRight, bottomRight, bottomLeft) = corners
+                    # convert each of the (x, y)-coordinate pairs to integers
+                    topRight = (int(topRight[0]), int(topRight[1]))
+                    bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
+                    bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
+                    topLeft = (int(topLeft[0]), int(topLeft[1]))	
+                    # draw the bounding box of the ArUCo detection
+                    cv.line(cv_color_img, topLeft, topRight, (0, 255, 0), 2)
+                    cv.line(cv_color_img, topRight, bottomRight, (0, 255, 0), 2)
+                    cv.line(cv_color_img, bottomRight, bottomLeft, (0, 255, 0), 2)
+                    cv.line(cv_color_img, bottomLeft, topLeft, (0, 255, 0), 2)
+                    # compute and draw the center (x, y)-coordinates of the
+                    # ArUco marker
+                    cX = int((topLeft[0] + bottomRight[0]) / 2.0)
+                    cY = int((topLeft[1] + bottomRight[1]) / 2.0)
+                    
+                    if markerID < len(list_marker_points):
+                        list_marker_points[markerID]=[cX,cY]
+                                       
+                    cv.circle(cv_color_img, (cX, cY), 4, (0, 0, 255), -1)
+                    # draw the ArUco marker ID on the frame
+                    cv.putText(cv_color_img, str(markerID), (cX, cY), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    
+                initial_points = np.float32([list_marker_points[0],list_marker_points[1],list_marker_points[2],list_marker_points[3]])
+                target_points = np.float32([[0,300], [0,0], [300,300], [300,0]])
+                M = cv.getPerspectiveTransform(initial_points, target_points)
+                cv_test_img = cv.warpPerspective(image_from_list.copy(), M, (300,300))
+                # cv_test_img = cv.rotate(cv_test_img, cv.ROTATE_90_CLOCKWISE)
+                cv.imwrite("./test_image.jpg", cv_test_img)
+            
+            io_test_img = imageio.imread("./test_image.jpg")
+            temp = np.zeros((io_test_img.shape[0], io_test_img.shape[1], IM_CDIM))
+            for chid in range(IM_CDIM):
+                temp[:,:,chid] = io_test_img[:,:,chid]
+            io_test_img = temp
+
+            [height, width, _] = io_test_img.shape
+            count = 0
+            islast = 0
+            inputdata = np.zeros((TEST_BATCH_SIZE, IM_HEIGHT, IM_WIDTH, IM_CDIM))
+            inputdata = inputdata.astype('float32')
+            inputloc = np.zeros((TEST_BATCH_SIZE, IM_CDIM))
+            rboxlist = []
+            scorelist = []
+            #start = time.time()
+            for i in range(len(TEST_RESOLUTION_OUT)):                                
+                xBegin, yBegin = 0, 0
+                width_i = int(round(width * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
+                height_i = int(round(height * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
+                image_i = cv.resize(io_test_img, (width_i, height_i), cv.INTER_AREA)
+                while 1:
+                    if islast == 0:                        
+                        width_S = IM_WIDTH * TEST_RESOLUTION_OUT[i] / TEST_RESOLUTION_IN #int(round(IM_WIDTH * TEST_RESOLUTION_OUT[i] / TEST_RESOLUTION_IN))
+                        height_S = IM_HEIGHT * TEST_RESOLUTION_OUT[i] / TEST_RESOLUTION_IN #int(round(IM_HEIGHT * TEST_RESOLUTION_OUT[i] / TEST_RESOLUTION_IN))
+                        xEnd = xBegin + width_S
+                        yEnd = yBegin + height_S
+                        xEnd = min(xEnd, width)
+                        yEnd = min(yEnd, height)
+                        xBeginHat = int(round(xBegin * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
+                        yBeginHat = int(round(yBegin * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
+                        xEndHat = int(round(xEnd * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
+                        yEndHat = int(round(yEnd * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
+                        
+                        subimage = np.zeros((IM_HEIGHT, IM_WIDTH, IM_CDIM))
+                        subimage[0:yEndHat-yBeginHat, 0:xEndHat-xBeginHat, 0:3] = image_i[yBeginHat:yEndHat, xBeginHat:xEndHat, 0:3]
+                        inputdata[count] = subimage.astype('float32')
+                        inputloc[count] = [xBegin,yBegin,TEST_RESOLUTION_OUT[i]/TEST_RESOLUTION_IN]
+                        count = count + 1
+                    if count == TEST_BATCH_SIZE or islast == 1:
+                        loc_preds, conf_preds = self.sess.run([self.loc, self.conf_softmax], feed_dict={self.input_im:inputdata})
+                        for j in range(TEST_BATCH_SIZE):
+                            conf_preds_j = conf_preds[j*self.total_prior_num:(j+1)*self.total_prior_num, 1]
+                            loc_preds_j  = loc_preds[j*self.total_prior_num:(j+1)*self.total_prior_num, :]
+                            index = np.where(conf_preds_j > TEST_SCORE_THRESHOLD)[0]
+                            conf_preds_j  = conf_preds_j[index]
+                            loc_preds_j   = loc_preds_j[index]
+                            loc_preds_j   = loc_preds_j.reshape(loc_preds_j.shape[0]*self.para_num)
+                            prior_boxes_j = self.prior_box[index].reshape(len(index) * self.para_num)
+                            inputloc_j = inputloc[j]
+                            if len(loc_preds_j) > 0:
+                                rbox, score = DecodeNMS(loc_preds_j, prior_boxes_j, conf_preds_j, inputloc_j, index, TEST_NMS_THRESHOLD, IM_HEIGHT, IM_WIDTH)
+                                rboxlist.extend(rbox)
+                                scorelist.extend(score)
+                        count = 0
+                    if islast == 1:
+                        break
+                    xBegin = xBegin + int(round(TEST_WIDTH_STEP * width_S))
+                    if  xEnd >= width: #xBegin
+                        if yEnd >= height:
+                            islast = 0
+                            break
+                        xBegin = 0
+                        yBegin = yBegin + int(round(TEST_HEIGHT_STEP * height_S))
+                        if yBegin >= height:
+                            if i == len(TEST_RESOLUTION_OUT) - 1:
+                                islast = 1
+                            else:
+                                break
+            
+            nms_out = NMSOutput(rboxlist, scorelist, TEST_NMS_THRESHOLD, label)
+            self.show_output(cv_color_img, cv_test_img, cv_depth_img, nms_out, M=M)
+        time_end = datetime.now()
+        elapsed_time = (time_end - time_start)
+        print("Computation time for 100 images : ", str(elapsed_time))
+        print("Computation time for 1 images : ", str(elapsed_time/100.0))
+    
+    def show_output(self, aruco_img, drbox_img, depth_img, nms_out, score_threshold=0.1, M=np.eye(3)):
+        # Parameter
+        scale_x = 2 # 60 cm / 300 pixel
+        scale_y = 2 # 60 cm / 300 pixel
+        cam_to_base = 800 # 700 mm jarak kamera ke base
+        
+        marker_height = 12 # ketinggian marker
+        bin_height = 6 # ketinggian permukaan bin dari meja
+
+        depth_colormap = cv.applyColorMap(cv.convertScaleAbs(depth_img.copy(), alpha=0.03), cv.COLORMAP_JET)
+        M_invers = np.linalg.pinv(M)
+        R = cv.getRotationMatrix2D((0,0), 90, 1)
+        RR = np.eye(3)
+        RR[:2,:3] = R[:,:]
+        for i in range(len(nms_out)):
+            # x, y, w, h, label, angle, score = nms_out[i]
+            x = nms_out[i][0]
+            y = nms_out[i][1]
+            w = nms_out[i][2]
+            h = nms_out[i][3]
+            label = nms_out[i][4]
+            angle = nms_out[i][5]
+            score = nms_out[i][6]
+            color = (0,0,255)
+            if score >= score_threshold:
+                tl_x = int(x - (w//2))
+                tl_y = int(y - (h//2))
+                bl_x = int(x - (w//2))
+                bl_y = int(y + (h//2))
+
+                tr_x = int(x + (w//2))
+                tr_y = int(y - (h//2))
+                br_x = int(x + (w//2))
+                br_y = int(y + (h//2))
+
+                R = cv.getRotationMatrix2D(center=(x,y), angle=-angle, scale=1)
+                tl = np.array([[tl_x], [tl_y], [1]])
+                bl = np.array([[bl_x], [bl_y], [1]])
+                tr = np.array([[tr_x], [tr_y], [1]])
+                br = np.array([[br_x], [br_y], [1]])
+
+                r_tl = R.dot(tl)
+                r_bl = R.dot(bl)
+                r_tr = R.dot(tr)
+                r_br = R.dot(br)
+
+                points = np.array([[r_tl[0], r_tl[1]],
+                                    [r_tr[0], r_tr[1]],
+                                    [r_br[0], r_br[1]],
+                                    [r_bl[0], r_bl[1]],], dtype=np.int32)
+                points = points.reshape((- 1 , 1 , 2 ))
+                cv.circle(drbox_img, (int(x), int(y)), 2, color, -1)
+                cv.polylines(drbox_img, [points], True, color, 2)
+                object_loc = np.array([[[x, y]]], dtype=np.float32)
+                object_loc_in_raw = cv.perspectiveTransform(object_loc, M_invers)
+                rr_tl = cv.perspectiveTransform(np.array([[[r_tl[0,0], r_tl[1,0]]]], dtype=np.float32), M_invers)
+                rr_tr = cv.perspectiveTransform(np.array([[[r_tr[0,0], r_tr[1,0]]]], dtype=np.float32), M_invers)
+                rr_br = cv.perspectiveTransform(np.array([[[r_br[0,0], r_br[1,0]]]], dtype=np.float32), M_invers)
+                rr_bl = cv.perspectiveTransform(np.array([[[r_bl[0,0], r_bl[1,0]]]], dtype=np.float32), M_invers)
+                rr_points = np.hstack((rr_tl, rr_tr, rr_br, rr_bl))
+                rr_points = rr_points.reshape((- 1 , 1 , 2 ))
+                raw_x = object_loc_in_raw[0,0,0]
+                raw_y = object_loc_in_raw[0,0,1]
+                # draw in color image
+                cv.circle(aruco_img, (int(raw_x), int(raw_y)), 5, color, -1)
+                cv.polylines(aruco_img, [rr_points.astype(np.int32)], True, color, 2)
+                # draw in depth image
+                cv.circle(depth_colormap, (int(raw_x), int(raw_y)), 5, color, -1)
+                cv.polylines(depth_colormap, [rr_points.astype(np.int32)], True, color, 2)
+                depth = depth_img[int(raw_y),int(raw_x)] # supaya ukuran dalam cm
+                pose_x = raw_x * scale_x
+                pose_y = raw_y * scale_y
+                pose_z = (cam_to_base - depth) # dikonversi dalam satuan cm
+                pose_yaw = angle - 90 # karena diatas di rotate 90
+                print("Depth :", depth, "mm")
+                print("Object Detection :", (int(x), int(y), pose_yaw))
+                print("Pose Estimation :", (pose_x, pose_y, pose_z, 0, 0, pose_yaw))
+
+        drbox_img_rotate = cv.rotate(drbox_img.copy(), cv.ROTATE_90_CLOCKWISE)
+        cv.imshow("Aruco Detector", aruco_img)
+        cv.imshow("Hasil", drbox_img_rotate)
+        cv.imshow("Depth Image", depth_colormap)
+        cv.waitKey(0)
 
     def save(self, step):
         model_name = "DrBoxNet.model"
@@ -560,5 +817,5 @@ if __name__ == '__main__':
     if FLAGS.train:
         net.train()
     else:
-        net.test()
+        net.test_from_depth()
                         
