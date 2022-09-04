@@ -164,7 +164,7 @@ def main():
                 break
             elif key == ord('s'):
                 print("Add image to list !")
-                print("Total image : ", len(list_color_frame))
+                print("Total image : ", len(list_color_frame) + 1)
                 list_color_frame.append(color_image)
                 list_depth_frame.append(depth_image)
     
