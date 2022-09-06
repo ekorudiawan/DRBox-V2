@@ -2,6 +2,7 @@ import os
 import os.path
 import sys
 import random
+from tkinter import CURRENT
 import numpy as np
 from glob import glob
 import tensorflow as tf
@@ -569,11 +570,11 @@ class DrBoxNet():
         arucoDict = cv.aruco.Dictionary_get(ARUCO_DICT['DICT_ARUCO_ORIGINAL'])
         arucoParams = cv.aruco.DetectorParameters_create()
 
-        for i in range(len(list_color_frame)):
-            print("Test image number : ", i)
-            image_from_list = list_color_frame[i]
+        for image_number in range(len(list_color_frame)):
+            print("Test image number : ", image_number)
+            image_from_list = list_color_frame[image_number]
             cv_color_img = image_from_list.copy()
-            cv_depth_img = list_depth_frame[i]
+            cv_depth_img = list_depth_frame[image_number]
 
             # detect ArUco markers in the input frame
             (corners, ids, rejected) = cv.aruco.detectMarkers(cv_color_img, arucoDict, parameters=arucoParams)
@@ -581,7 +582,7 @@ class DrBoxNet():
                 # flatten the ArUco IDs list
                 ids = ids.flatten()
                 # loop over the detected ArUCo corners
-                list_marker_points = [[0,0],[0,0],[0,0],[0,0],[0,0]] # order dalam list 3, 2, 1, 0
+                list_marker_points = [[0,0],[0,0],[0,0],[0,0],[0,0]] # order dalam list 3, 2, 0, 1
                 for (markerCorner, markerID) in zip(corners, ids):
                     # extract the marker corners (which are always returned
                     # in top-left, top-right, bottom-right, and bottom-left order
@@ -610,13 +611,14 @@ class DrBoxNet():
                     cv.putText(cv_color_img, str(markerID), (cX, cY), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                     
                 initial_points = np.float32([list_marker_points[0],list_marker_points[1],list_marker_points[2],list_marker_points[3]])
-                target_points = np.float32([[0,300], [0,0], [300,300], [300,0]])
+                target_points = np.float32([[0,0], [300,0], [0,300], [300,300]])
+
                 M = cv.getPerspectiveTransform(initial_points, target_points)
                 cv_test_img = cv.warpPerspective(image_from_list.copy(), M, (300,300))
-                # cv_test_img = cv.rotate(cv_test_img, cv.ROTATE_90_CLOCKWISE)
                 cv.imwrite("./test_image.jpg", cv_test_img)
             
-            io_test_img = imageio.imread("./test_image.jpg")
+            # io_test_img = imageio.imread("./test_image.jpg")
+            io_test_img = cv.cvtColor(cv.imread("./test_image.jpg"), cv.COLOR_BGR2RGB)
             temp = np.zeros((io_test_img.shape[0], io_test_img.shape[1], IM_CDIM))
             for chid in range(IM_CDIM):
                 temp[:,:,chid] = io_test_img[:,:,chid]
@@ -630,7 +632,6 @@ class DrBoxNet():
             inputloc = np.zeros((TEST_BATCH_SIZE, IM_CDIM))
             rboxlist = []
             scorelist = []
-            #start = time.time()
             for i in range(len(TEST_RESOLUTION_OUT)):                                
                 xBegin, yBegin = 0, 0
                 width_i = int(round(width * TEST_RESOLUTION_IN / TEST_RESOLUTION_OUT[i]))
@@ -686,13 +687,15 @@ class DrBoxNet():
                                 break
             
             nms_out = NMSOutput(rboxlist, scorelist, TEST_NMS_THRESHOLD, label)
-            self.show_output(cv_color_img, cv_test_img, cv_depth_img, nms_out, M=M)
+            self.show_output(image_number+1, image_from_list.copy(), cv_color_img, cv_test_img, cv_depth_img, nms_out, M=M)
         time_end = datetime.now()
         elapsed_time = (time_end - time_start)
-        print("Computation time for 100 images : ", str(elapsed_time))
-        print("Computation time for 1 images : ", str(elapsed_time/100.0))
+        print("Computation time for 10 images : ", str(elapsed_time))
+        print("Computation time for 1 images : ", str(elapsed_time/10.0))
     
-    def show_output(self, aruco_img, drbox_img, depth_img, nms_out, score_threshold=0.1, M=np.eye(3)):
+    def show_output(self, image_number, raw_img, aruco_img, drbox_img, depth_img, nms_out, score_threshold=0.1, M=np.eye(3)):
+        raw_roi = drbox_img.copy()
+
         # Parameter
         scale_x = 2 # 60 cm / 300 pixel
         scale_y = 2 # 60 cm / 300 pixel
@@ -710,12 +713,21 @@ class DrBoxNet():
             # x, y, w, h, label, angle, score = nms_out[i]
             x = nms_out[i][0]
             y = nms_out[i][1]
-            w = nms_out[i][2]
-            h = nms_out[i][3]
+            # if w > h
+            if(nms_out[i][2] > nms_out[i][3]):
+                w = nms_out[i][2]
+                h = nms_out[i][3]
+                angle = nms_out[i][5]
+            else:
+                h = nms_out[i][2]
+                w = nms_out[i][3]
+                angle = 90 + nms_out[i][5] 
             label = nms_out[i][4]
-            angle = nms_out[i][5]
+            
             score = nms_out[i][6]
-            color = (0,0,255)
+            color_red = (0,0,255)
+            color_green = (0,255,0)
+
             if score >= score_threshold:
                 tl_x = int(x - (w//2))
                 tl_y = int(y - (h//2))
@@ -728,6 +740,8 @@ class DrBoxNet():
                 br_y = int(y + (h//2))
 
                 R = cv.getRotationMatrix2D(center=(x,y), angle=-angle, scale=1)
+                l = 25
+                line_head = np.array([[x + l], [y], [1]])
                 tl = np.array([[tl_x], [tl_y], [1]])
                 bl = np.array([[bl_x], [bl_y], [1]])
                 tr = np.array([[tr_x], [tr_y], [1]])
@@ -737,43 +751,80 @@ class DrBoxNet():
                 r_bl = R.dot(bl)
                 r_tr = R.dot(tr)
                 r_br = R.dot(br)
-
+                r_line_head = R.dot(line_head)
                 points = np.array([[r_tl[0], r_tl[1]],
                                     [r_tr[0], r_tr[1]],
                                     [r_br[0], r_br[1]],
                                     [r_bl[0], r_bl[1]],], dtype=np.int32)
                 points = points.reshape((- 1 , 1 , 2 ))
-                cv.circle(drbox_img, (int(x), int(y)), 2, color, -1)
-                cv.polylines(drbox_img, [points], True, color, 2)
+                
+                # Draw on drbox output
+                cv.line(drbox_img, (int(x), int(y)), (int(r_line_head[0]), int(r_line_head[1])), color_red, 2)
+                cv.circle(drbox_img, (int(x), int(y)), 5, color_green, -1)
+                cv.polylines(drbox_img, [points], True, color_red, 2)
+
+                # Invers tranform
                 object_loc = np.array([[[x, y]]], dtype=np.float32)
                 object_loc_in_raw = cv.perspectiveTransform(object_loc, M_invers)
                 rr_tl = cv.perspectiveTransform(np.array([[[r_tl[0,0], r_tl[1,0]]]], dtype=np.float32), M_invers)
                 rr_tr = cv.perspectiveTransform(np.array([[[r_tr[0,0], r_tr[1,0]]]], dtype=np.float32), M_invers)
                 rr_br = cv.perspectiveTransform(np.array([[[r_br[0,0], r_br[1,0]]]], dtype=np.float32), M_invers)
                 rr_bl = cv.perspectiveTransform(np.array([[[r_bl[0,0], r_bl[1,0]]]], dtype=np.float32), M_invers)
+                rr_line_head = cv.perspectiveTransform(np.array([[[r_line_head[0,0], r_line_head[1,0]]]], dtype=np.float32), M_invers)
                 rr_points = np.hstack((rr_tl, rr_tr, rr_br, rr_bl))
                 rr_points = rr_points.reshape((- 1 , 1 , 2 ))
                 raw_x = object_loc_in_raw[0,0,0]
                 raw_y = object_loc_in_raw[0,0,1]
-                # draw in color image
-                cv.circle(aruco_img, (int(raw_x), int(raw_y)), 5, color, -1)
-                cv.polylines(aruco_img, [rr_points.astype(np.int32)], True, color, 2)
-                # draw in depth image
-                cv.circle(depth_colormap, (int(raw_x), int(raw_y)), 5, color, -1)
-                cv.polylines(depth_colormap, [rr_points.astype(np.int32)], True, color, 2)
-                depth = depth_img[int(raw_y),int(raw_x)] # supaya ukuran dalam cm
-                pose_x = raw_x * scale_x
-                pose_y = raw_y * scale_y
-                pose_z = (cam_to_base - depth) # dikonversi dalam satuan cm
-                pose_yaw = angle - 90 # karena diatas di rotate 90
+
+                # Draw on raw image
+                cv.line(aruco_img, (int(raw_x), int(raw_y)), (int(rr_line_head[0,0,0]), int(rr_line_head[0,0,1])), color_red, 2)
+                cv.circle(aruco_img, (int(raw_x), int(raw_y)), 5, color_green, -1)
+                cv.polylines(aruco_img, [rr_points.astype(np.int32)], True, color_red, 2)
+
+                # Draw on depth image
+                cv.line(depth_colormap, (int(raw_x), int(raw_y)), (int(rr_line_head[0,0,0]), int(rr_line_head[0,0,1])), color_red, 2)
+                cv.circle(depth_colormap, (int(raw_x), int(raw_y)), 5, color_green, -1)
+                cv.polylines(depth_colormap, [rr_points.astype(np.int32)], True, color_red, 2)
+
+                # Calculation
+                depth = depth_img[int(raw_y), int(raw_x)] # kalkulasi jarak dari depth
+                pose_x = x * scale_x
+                pose_y = y * scale_y
+                pose_z = (cam_to_base - depth) # dikonversi dalam satuan mm
+                pose_yaw = angle
+
+                print("Angle :", angle, "degrees")
                 print("Depth :", depth, "mm")
-                print("Object Detection :", (int(x), int(y), pose_yaw))
+                print("Object Detection :", (int(x), int(y), int(w), int(h), pose_yaw))
                 print("Pose Estimation :", (pose_x, pose_y, pose_z, 0, 0, pose_yaw))
 
-        drbox_img_rotate = cv.rotate(drbox_img.copy(), cv.ROTATE_90_CLOCKWISE)
+                # drbox output, actual pose, predicted pose, 
+                print("%.2f, %.2f, %1d, %1d, %1d, %1d, %.2f, %.2f, %.2f, %.2f" % (x, y, 0, 0, 0, 0, pose_x, pose_y, pose_z, pose_yaw))
+
+        save_path = os.getcwd() + "/d455_result/5a/"
+
+        raw_img_path = save_path + "/raw_rgb_" + str(image_number) + ".jpg"
+        raw_roi_path = save_path + "/raw_roi_" + str(image_number) + ".jpg"
+        aruco_img_path = save_path + "/result_rgb_" + str(image_number) + ".jpg"
+        drbox_img_path = save_path + "/result_roi_" + str(image_number) + ".jpg"
+        result_depth_path = save_path + "/result_depth_" + str(image_number) + ".jpg"
+
+        print("raw_img_path :", raw_img_path)
+        print("raw_roi_path :", raw_roi_path)
+        print("aruco_img_path :", aruco_img_path)
+        print("drbox_img_rotate_path :", drbox_img_path)
+        print("result_depth_path :", result_depth_path)
+
+        cv.imwrite(raw_img_path, raw_img)
+        cv.imwrite(raw_roi_path, raw_roi)
+        cv.imwrite(aruco_img_path, aruco_img)
+        cv.imwrite(drbox_img_path, drbox_img)
+        cv.imwrite(result_depth_path, depth_colormap)
+
         cv.imshow("Aruco Detector", aruco_img)
-        cv.imshow("Hasil", drbox_img_rotate)
+        cv.imshow("Hasil", drbox_img)
         cv.imshow("Depth Image", depth_colormap)
+
         cv.waitKey(0)
 
     def save(self, step):

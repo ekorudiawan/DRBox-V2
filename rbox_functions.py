@@ -138,7 +138,7 @@ def DecodeNMS(loc_preds_j, prior_boxes_j, conf_preds_j, inputloc_j, index, nms_t
             score.append(conf_c[index_k])
         return rbox, score                
 
-def NMSOutput(rboxlist, scorelist, nms_threshold, label, test_rbox_output_path):
+def NMSOutput(rboxlist, scorelist, nms_threshold, label, test_rbox_output_path=""):
     loc_c = (c_double * len(rboxlist))()
     score_c = (c_double * len(scorelist))()
     indices_c = (c_int * len(scorelist))()
@@ -151,11 +151,16 @@ def NMSOutput(rboxlist, scorelist, nms_threshold, label, test_rbox_output_path):
     NMS(loc_c, indices_c, score_c, byref(num_preds), c_double(nms_threshold))
     # print("====================================")
     list_result = []
-    with open(test_rbox_output_path, 'w') as fid:
+    if test_rbox_output_path == "":
         for i in range(num_preds.value):
-            index_i = indices_c[i]
-            fid.write('{} {} {} {} {} {} {}\n'.format(loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label,
-                       loc_c[5*index_i+4], score_c[index_i]))
-            list_result.append([loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label, loc_c[5*index_i+4], score_c[index_i]])
+                index_i = indices_c[i]
+                list_result.append([loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label, loc_c[5*index_i+4], score_c[index_i]])
+    else:
+        with open(test_rbox_output_path, 'w') as fid:
+            for i in range(num_preds.value):
+                index_i = indices_c[i]
+                fid.write('{} {} {} {} {} {} {}\n'.format(loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label,
+                        loc_c[5*index_i+4], score_c[index_i]))
+                list_result.append([loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label, loc_c[5*index_i+4], score_c[index_i]])
     return list_result
     # return (loc_c[5*index_i], loc_c[5*index_i+1], loc_c[5*index_i+2], loc_c[5*index_i+3], label, loc_c[5*index_i+4], score_c[index_i])
